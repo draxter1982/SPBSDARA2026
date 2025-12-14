@@ -158,7 +158,7 @@ export default function SistemRekodBuku() {
         setIsAdminAuthenticated(true);
         setPinError('');
     } else {
-        setPinError('Kod PIN salah. Sila cuba lagi.');
+        setPinError('Kod PIN anda salah. Sila cuba lagi.');
         setPinInput('');
     }
   };
@@ -654,7 +654,7 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
               <label style={{ cursor: 'pointer', width: '100%', height: '128px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
                 <Upload className="w-8 h-8 mb-2 text-slate-400" />
                 <span className="text-sm font-medium text-blue-600" style={{ fontSize: '14px', fontWeight: 500, color: '#2563eb' }}>Ambil Gambar</span>
-                <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'resit')} className="hidden" style={{ display: 'none' }} required />
+                <input type="file" accept="image/*" capture="environment" onChange={(e) => handleFileChange(e, 'resit')} className="hidden" style={{ display: 'none' }} required />
               </label>
             )}
           </div>
@@ -672,7 +672,7 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
               <label style={{ cursor: 'pointer', width: '100%', height: '128px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
                 <Upload className="w-8 h-8 mb-2 text-slate-400" />
                 <span className="text-sm font-medium text-blue-600" style={{ fontSize: '14px', fontWeight: 500, color: '#2563eb' }}>Ambil Gambar</span>
-                <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'senarai')} style={{ display: 'none' }} />
+                <input type="file" accept="image/*" capture="environment" onChange={(e) => handleFileChange(e, 'senarai')} style={{ display: 'none' }} />
               </label>
             )}
           </div>
