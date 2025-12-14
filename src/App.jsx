@@ -39,6 +39,7 @@ const WifiOff = (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24"
 const RefreshCw = (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>;
 const Trash = (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
 const Download = (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>;
+const DollarSign = (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>;
 
 // Icon Loading (Spinner Animasi)
 const LoadingSpinner = (p) => (
@@ -158,7 +159,7 @@ export default function SistemRekodBuku() {
         setIsAdminAuthenticated(true);
         setPinError('');
     } else {
-        setPinError('Kod PIN anda salah. Sila cuba lagi.');
+        setPinError('Kod PIN salah. Sila cuba lagi.');
         setPinInput('');
     }
   };
@@ -419,6 +420,7 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
     kelas: '',
     namaPenjaga: '',
     noTelefon: '',
+    jumlahBayaran: '',
   });
   const [imgResit, setImgResit] = useState(null);
   const [imgSenarai, setImgSenarai] = useState(null);
@@ -463,7 +465,7 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.namaMurid.trim() || !formData.tingkatan || !formData.kelas || !imgResit) {
+    if (!formData.namaMurid.trim() || !formData.tingkatan || !formData.kelas || !imgResit || !formData.jumlahBayaran) {
       return alert("Sila lengkapkan maklumat wajib.");
     }
 
@@ -519,7 +521,7 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
   };
 
   const resetForm = () => {
-    setFormData({ namaMurid: '', tingkatan: '', kelas: '', namaPenjaga: '', noTelefon: '' });
+    setFormData({ namaMurid: '', tingkatan: '', kelas: '', namaPenjaga: '', noTelefon: '', jumlahBayaran: '' });
     setImgResit(null);
     setImgSenarai(null);
   };
@@ -654,7 +656,7 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
               <label style={{ cursor: 'pointer', width: '100%', height: '128px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
                 <Upload className="w-8 h-8 mb-2 text-slate-400" />
                 <span className="text-sm font-medium text-blue-600" style={{ fontSize: '14px', fontWeight: 500, color: '#2563eb' }}>Ambil Gambar</span>
-                <input type="file" accept="image/*" capture="environment" onChange={(e) => handleFileChange(e, 'resit')} className="hidden" style={{ display: 'none' }} required />
+                <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'resit')} className="hidden" style={{ display: 'none' }} required />
               </label>
             )}
           </div>
@@ -675,6 +677,24 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
                 <input type="file" accept="image/*" capture="environment" onChange={(e) => handleFileChange(e, 'senarai')} style={{ display: 'none' }} />
               </label>
             )}
+          </div>
+        </div>
+
+        <div>
+          <label style={labelStyle}>Jumlah Pembayaran (RM)</label>
+          <div style={{ position: 'relative' }}>
+            <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', fontWeight: 'bold', fontSize: '14px' }}>
+              RM
+            </div>
+            <input
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+              value={formData.jumlahBayaran}
+              onChange={(e) => setFormData({...formData, jumlahBayaran: e.target.value})}
+              style={{ ...inputStyle, paddingLeft: '44px' }}
+              required
+            />
           </div>
         </div>
 
@@ -771,7 +791,7 @@ function AdminDashboard({ data, isOnline, appId }) {
 
     // CSV Header
     let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "Nama Murid,Tingkatan,Kelas,Nama Penjaga,No Telefon,Tarikh\n";
+    csvContent += "Nama Murid,Tingkatan,Kelas,Nama Penjaga,No Telefon,Jumlah Bayaran (RM),Tarikh\n";
 
     // CSV Rows
     dataToExport.forEach(row => {
@@ -779,7 +799,7 @@ function AdminDashboard({ data, isOnline, appId }) {
         // Clean strings to prevent CSV breakage
         const clean = (str) => `"${(str || '').replace(/"/g, '""')}"`;
         
-        csvContent += `${clean(row.namaMurid)},${clean(row.tingkatan)},${clean(row.kelas)},${clean(row.namaPenjaga)},${clean(row.noTelefon)},${clean(dateStr)}\n`;
+        csvContent += `${clean(row.namaMurid)},${clean(row.tingkatan)},${clean(row.kelas)},${clean(row.namaPenjaga)},${clean(row.noTelefon)},${clean(row.jumlahBayaran)},${clean(dateStr)}\n`;
     });
 
     // Download Trigger
@@ -865,6 +885,7 @@ function AdminDashboard({ data, isOnline, appId }) {
               <th className="px-4 py-3" style={{ padding: '12px 16px' }}>Tarikh</th>
               <th className="px-4 py-3" style={{ padding: '12px 16px' }}>Nama</th>
               <th className="px-4 py-3" style={{ padding: '12px 16px' }}>Kelas</th>
+              <th className="px-4 py-3" style={{ padding: '12px 16px' }}>Jumlah (RM)</th>
               <th className="px-4 py-3 text-center" style={{ padding: '12px 16px', textAlign: 'center' }}>Bukti</th>
               <th className="px-4 py-3 text-right" style={{ padding: '12px 16px', textAlign: 'right' }}>Tindakan</th>
             </tr>
@@ -883,6 +904,7 @@ function AdminDashboard({ data, isOnline, appId }) {
                 <td className="px-4 py-3" style={{ padding: '12px 16px' }}>{record.tarikh?.seconds ? new Date(record.tarikh.seconds * 1000).toLocaleDateString() : 'Baru'}</td>
                 <td className="px-4 py-3 font-medium" style={{ padding: '12px 16px', fontWeight: 500 }}>{record.namaMurid}</td>
                 <td className="px-4 py-3" style={{ padding: '12px 16px' }}><span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs" style={{ backgroundColor: '#dbeafe', color: '#1d4ed8', padding: '4px 8px', borderRadius: '4px', fontSize: '12px' }}>{record.kelas}</span></td>
+                <td className="px-4 py-3 font-medium text-green-600" style={{ padding: '12px 16px', color: '#16a34a' }}>{record.jumlahBayaran ? `RM ${parseFloat(record.jumlahBayaran).toFixed(2)}` : '-'}</td>
                 <td className="px-4 py-3 text-center" style={{ padding: '12px 16px', textAlign: 'center' }}>{record.resitImage && <ImageIcon className="w-4 h-4 text-green-500 mx-auto" />}</td>
                 <td className="px-4 py-3 text-right" style={{ padding: '12px 16px', textAlign: 'right' }}>
                   <div className="flex justify-end gap-2" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
@@ -894,7 +916,7 @@ function AdminDashboard({ data, isOnline, appId }) {
                 </td>
               </tr>
             ))}
-            {filteredData.length === 0 && <tr><td colSpan="6" className="p-4 text-center" style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>Tiada rekod.</td></tr>}
+            {filteredData.length === 0 && <tr><td colSpan="7" className="p-4 text-center" style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>Tiada rekod.</td></tr>}
           </tbody>
         </table>
       </div>
@@ -928,8 +950,9 @@ function AdminDashboard({ data, isOnline, appId }) {
               <div className="flex justify-between items-start mb-2 pr-8" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', paddingRight: '32px' }}>
                 <div><h3 className="font-bold text-sm" style={{ fontWeight: 'bold', fontSize: '14px' }}>{record.namaMurid}</h3><p className="text-xs text-slate-500" style={{ fontSize: '12px', color: '#64748b' }}>{record.namaPenjaga}</p></div>
               </div>
-              <div style={{ marginBottom: '8px' }}>
+              <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold" style={{ backgroundColor: '#dbeafe', color: '#1d4ed8', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>{record.kelas}</span>
+                <span className="text-green-600 font-bold text-sm" style={{ color: '#16a34a', fontWeight: 'bold' }}>{record.jumlahBayaran ? `RM ${parseFloat(record.jumlahBayaran).toFixed(2)}` : ''}</span>
               </div>
               <div className="flex justify-between items-center mt-3 border-t pt-2" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', borderTop: '1px solid #f1f5f9', paddingTop: '8px' }}>
                 <span className="text-xs text-slate-400" style={{ fontSize: '12px', color: '#94a3b8' }}>{record.tarikh?.seconds ? new Date(record.tarikh.seconds * 1000).toLocaleDateString() : 'Baru'}</span>
@@ -958,6 +981,13 @@ function AdminDashboard({ data, isOnline, appId }) {
                   <div><label className="text-xs font-bold text-slate-500" style={{ fontSize: '12px', fontWeight: 'bold', color: '#64748b' }}>TELEFON</label><div>{selectedRecord.noTelefon}</div></div>
               </div>
               
+              <div>
+                  <label className="text-xs font-bold text-slate-500" style={{ fontSize: '12px', fontWeight: 'bold', color: '#64748b' }}>JUMLAH BAYARAN</label>
+                  <div className="font-bold text-green-600 text-lg" style={{ color: '#16a34a', fontSize: '18px' }}>
+                    {selectedRecord.jumlahBayaran ? `RM ${parseFloat(selectedRecord.jumlahBayaran).toFixed(2)}` : 'Tiada Maklumat'}
+                  </div>
+              </div>
+
               {/* Added Senarai Buku Image display */}
               {selectedRecord.senaraiImage && (
                 <div>
