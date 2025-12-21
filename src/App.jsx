@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
-import { getFirestore, collection, addDoc, query, onSnapshot, deleteDoc, doc, writeBatch } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, query, onSnapshot, deleteDoc, doc, writeBatch, limit, orderBy } from 'firebase/firestore';
 
 // =================================================================================
 // KONFIGURASI SISTEM
@@ -40,6 +40,7 @@ const RefreshCw = (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="2
 const Trash = (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
 const Download = (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>;
 const DollarSign = (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>;
+const CloudDownload = (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>;
 
 // Icon Loading (Spinner Animasi)
 const LoadingSpinner = (p) => (
@@ -97,6 +98,7 @@ export default function SistemRekodBuku() {
   const [pinError, setPinError] = useState(''); // Mesej ralat PIN
   const [isOnline, setIsOnline] = useState(true); // Status Online/Offline
   const [pendingCount, setPendingCount] = useState(0);
+  const [isViewAll, setIsViewAll] = useState(false); // New state to control load all
 
   // Semak status online/offline
   useEffect(() => {
@@ -220,13 +222,22 @@ export default function SistemRekodBuku() {
     setLoading(true); // Start loading when admin logs in
 
     try {
-      const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'rekod_buku_2026'));
+      const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'rekod_buku_2026');
+      let q;
+      
+      if (isViewAll) {
+         q = query(collectionRef); // Load everything if requested
+      } else {
+         q = query(collectionRef, orderBy('tarikh', 'desc'), limit(50)); // Load recent 50 by default
+      }
+
       const unsubscribe = onSnapshot(q, (snapshot) => {
         try {
           const data = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
           }));
+          // Sort client-side too to be safe
           data.sort((a, b) => (b.tarikh?.seconds || 0) - (a.tarikh?.seconds || 0));
           setSubmissions(data);
           localStorage.setItem('cached_dashboard_data', JSON.stringify(data)); // Save cache
@@ -239,7 +250,12 @@ export default function SistemRekodBuku() {
         console.error("Firestore Error:", error);
         setLoading(false);
         if (error.code !== 'permission-denied') {
-             setDataError("Gagal menyambung ke pangkalan data.");
+             // Silently handle index error for now or fallback
+             if (error.message.includes("requires an index")) {
+                 setDataError("Sila bina indeks di Firebase Console untuk 'tarikh' (descending).");
+             } else {
+                 setDataError("Gagal menyambung ke pangkalan data.");
+             }
         }
       });
       return () => unsubscribe();
@@ -247,7 +263,7 @@ export default function SistemRekodBuku() {
       console.error("Query Error:", err);
       setLoading(false);
     }
-  }, [user, isOnline, isAdminAuthenticated]); // Add isAdminAuthenticated dependency
+  }, [user, isOnline, isAdminAuthenticated, isViewAll]); // Re-run if isViewAll changes
 
   const mainContainerStyle = {
     minHeight: '100vh',
@@ -407,7 +423,7 @@ export default function SistemRekodBuku() {
                             <p className="text-sm font-medium">Memuatkan Rekod...</p>
                          </div>
                     ) : (
-                         <AdminDashboard data={submissions} isOnline={isOnline} appId={appId} />
+                         <AdminDashboard data={submissions} isOnline={isOnline} appId={appId} isViewAll={isViewAll} setIsViewAll={setIsViewAll} />
                     )}
                   </>
                 )}
@@ -673,6 +689,7 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
               <label style={{ cursor: 'pointer', width: '100%', height: '128px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
                 <Upload className="w-8 h-8 mb-2 text-slate-400" />
                 <span className="text-sm font-medium text-blue-600" style={{ fontSize: '14px', fontWeight: 500, color: '#2563eb' }}>Ambil Gambar</span>
+                {/* Changed: Removed capture="environment" to allow Gallery/Camera selection */}
                 <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'resit')} className="hidden" style={{ display: 'none' }} required />
               </label>
             )}
@@ -691,6 +708,7 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
               <label style={{ cursor: 'pointer', width: '100%', height: '128px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
                 <Upload className="w-8 h-8 mb-2 text-slate-400" />
                 <span className="text-sm font-medium text-blue-600" style={{ fontSize: '14px', fontWeight: 500, color: '#2563eb' }}>Ambil Gambar</span>
+                {/* Changed: Removed capture="environment" to allow Gallery/Camera selection */}
                 <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'senarai')} style={{ display: 'none' }} />
               </label>
             )}
@@ -729,7 +747,7 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
 }
 
 // --- Komponen: Admin ---
-function AdminDashboard({ data, isOnline, appId }) {
+function AdminDashboard({ data, isOnline, appId, isViewAll, setIsViewAll }) {
   const [filterClass, setFilterClass] = useState('Semua');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRecord, setSelectedRecord] = useState(null);
@@ -884,6 +902,22 @@ function AdminDashboard({ data, isOnline, appId }) {
                 </button>
             )}
         </div>
+      </div>
+
+      {/* Load All Banner */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex justify-between items-center" style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', padding: '12px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <p className="text-sm text-blue-800" style={{ fontSize: '14px', color: '#1e40af', margin: 0 }}>
+             {isViewAll 
+                ? `Menunjukkan semua ${safeData.length} rekod.` 
+                : `Menunjukkan ${safeData.length} rekod terkini.`}
+          </p>
+          <button 
+             onClick={() => setIsViewAll(!isViewAll)}
+             className="text-xs font-bold text-blue-600 hover:text-blue-800 underline"
+             style={{ fontSize: '12px', fontWeight: 'bold', color: '#2563eb', textDecoration: 'underline', border: 'none', background: 'none', cursor: 'pointer' }}
+          >
+             {isViewAll ? "Lihat Terkini Sahaja" : "Lihat Semua Rekod"}
+          </button>
       </div>
 
       {/* Desktop Table */}
