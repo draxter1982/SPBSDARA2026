@@ -204,25 +204,21 @@ export default function SistemRekodBuku() {
     return () => unsubscribe();
   }, []);
 
+  // OPTIMIZED DATA FETCHING: Only fetch if Admin is authenticated
   useEffect(() => {
-    // Load cache
-    const cachedData = localStorage.getItem('cached_dashboard_data');
-    if (cachedData) {
-        try {
-            const parsed = JSON.parse(cachedData);
-            setSubmissions(parsed);
-            setLoading(false);
-        } catch (e) { console.error("Cache error", e); }
-    }
-
-    if (!user) {
-        // Jika offline, biar loading false supaya nampak cache
-        if (!isOnline) setLoading(false);
+    // Stop if user is not logged in OR not an admin
+    if (!user || !isAdminAuthenticated) {
+        setLoading(false); // Stop loading spinner for parents
         return;
     }
 
-    // PEMBETULAN: Dibuang '!isOnline' supaya ia tetap cuba fetch data walaupun browser kata offline
-    // Ini membantu jika status 'navigator.onLine' tidak tepat
+    if (!isOnline) {
+        setLoading(false);
+        return;
+    }
+
+    setLoading(true); // Start loading when admin logs in
+
     try {
       const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'rekod_buku_2026'));
       const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -242,14 +238,16 @@ export default function SistemRekodBuku() {
       }, (error) => {
         console.error("Firestore Error:", error);
         setLoading(false);
-        if (!cachedData) setDataError("Gagal menyambung ke pangkalan data.");
+        if (error.code !== 'permission-denied') {
+             setDataError("Gagal menyambung ke pangkalan data.");
+        }
       });
       return () => unsubscribe();
     } catch (err) {
       console.error("Query Error:", err);
       setLoading(false);
     }
-  }, [user, isOnline]);
+  }, [user, isOnline, isAdminAuthenticated]); // Add isAdminAuthenticated dependency
 
   const mainContainerStyle = {
     minHeight: '100vh',
@@ -356,7 +354,8 @@ export default function SistemRekodBuku() {
             </div>
           )}
 
-          {loading ? (
+          {loading && activeTab === 'borang' && !user ? (
+             /* Only show loading on borang if user auth is not ready */
             <div className="flex flex-col items-center justify-center py-12 text-slate-400" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0', color: '#94a3b8' }}>
               <LoadingSpinner className="text-blue-900 mb-4" style={{ color: '#1e3a8a', width: '48px', height: '48px', marginBottom: '16px' }} />
               <p className="text-sm font-medium">Memuatkan Sistem...</p>
@@ -401,7 +400,16 @@ export default function SistemRekodBuku() {
                   </div>
                 ) : (
                   // Paparan Dashboard Admin (Jika PIN Betul)
-                  <AdminDashboard data={submissions} isOnline={isOnline} appId={appId} />
+                  <>
+                    {loading ? (
+                         <div className="flex flex-col items-center justify-center py-12 text-slate-400" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0', color: '#94a3b8' }}>
+                            <LoadingSpinner className="text-blue-900 mb-4" style={{ color: '#1e3a8a', width: '48px', height: '48px', marginBottom: '16px' }} />
+                            <p className="text-sm font-medium">Memuatkan Rekod...</p>
+                         </div>
+                    ) : (
+                         <AdminDashboard data={submissions} isOnline={isOnline} appId={appId} />
+                    )}
+                  </>
                 )}
               </div>
             </>
@@ -427,9 +435,11 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [offlineSaved, setOfflineSaved] = useState(false);
+  const [loadingImage, setLoadingImage] = useState(false);
 
   const processImage = (file, callback) => {
     if (!file) return;
+    setLoadingImage(true); // Start loading UI
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = (event) => {
@@ -449,6 +459,7 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
         callback(canvas.toDataURL('image/jpeg', 0.6));
+        setLoadingImage(false); // Stop loading UI
       };
     };
   };
@@ -636,6 +647,12 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
 
         <div className="border-t border-slate-200 my-1" style={{ borderTop: '1px solid #e2e8f0', margin: '4px 0' }}></div>
 
+        {loadingImage && (
+            <div className="text-center text-sm text-blue-600 font-medium animate-pulse" style={{ color: '#2563eb' }}>
+                Sedang memproses gambar...
+            </div>
+        )}
+
         <div className="grid md:grid-cols-2 gap-4 md:gap-6" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
           <div style={{ border: `2px dashed ${imgResit ? '#93c5fd' : '#cbd5e1'}`, borderRadius: '12px', padding: '16px', backgroundColor: imgResit ? '#eff6ff' : '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
             <h3 className="font-semibold text-slate-700 mb-2 flex items-center gap-2 text-sm" style={{ fontWeight: 600, color: '#334155', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
@@ -700,9 +717,9 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
 
         <button
           type="submit"
-          disabled={isSubmitting}
-          className={`mt-2 w-full py-3.5 px-6 rounded-lg text-white font-semibold text-lg shadow-md transition-all ${isSubmitting ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
-          style={{ marginTop: '8px', width: '100%', padding: '14px 24px', borderRadius: '8px', color: 'white', fontWeight: 600, fontSize: '18px', border: 'none', cursor: isSubmitting ? 'not-allowed' : 'pointer', backgroundColor: isSubmitting ? '#94a3b8' : '#2563eb' }}
+          disabled={isSubmitting || loadingImage}
+          className={`mt-2 w-full py-3.5 px-6 rounded-lg text-white font-semibold text-lg shadow-md transition-all ${isSubmitting || loadingImage ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+          style={{ marginTop: '8px', width: '100%', padding: '14px 24px', borderRadius: '8px', color: 'white', fontWeight: 600, fontSize: '18px', border: 'none', cursor: isSubmitting || loadingImage ? 'not-allowed' : 'pointer', backgroundColor: isSubmitting || loadingImage ? '#94a3b8' : '#2563eb' }}
         >
           {isSubmitting ? 'Sedang Hantar...' : (isOnline ? 'Hantar Borang' : 'Simpan Secara Offline')}
         </button>
