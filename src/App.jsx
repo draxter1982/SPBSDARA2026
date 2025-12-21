@@ -40,7 +40,6 @@ const RefreshCw = (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="2
 const Trash = (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
 const Download = (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>;
 const DollarSign = (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>;
-const CloudDownload = (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>;
 
 // Icon Loading (Spinner Animasi)
 const LoadingSpinner = (p) => (
@@ -228,7 +227,8 @@ export default function SistemRekodBuku() {
       if (isViewAll) {
          q = query(collectionRef); // Load everything if requested
       } else {
-         q = query(collectionRef, orderBy('tarikh', 'desc'), limit(50)); // Load recent 50 by default
+         // Load recent 20 by default (Reduced from 50 to speed up initial load)
+         q = query(collectionRef, orderBy('tarikh', 'desc'), limit(20)); 
       }
 
       const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -453,6 +453,7 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
   const [offlineSaved, setOfflineSaved] = useState(false);
   const [loadingImage, setLoadingImage] = useState(false);
 
+  // Optimised Image Processing - Reduced width and quality for faster upload
   const processImage = (file, callback) => {
     if (!file) return;
     setLoadingImage(true); // Start loading UI
@@ -463,7 +464,7 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
       img.src = event.target.result;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 800;
+        const MAX_WIDTH = 600; // Reduced from 800
         let width = img.width;
         let height = img.height;
         if (width > MAX_WIDTH) {
@@ -474,7 +475,7 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
-        callback(canvas.toDataURL('image/jpeg', 0.6));
+        callback(canvas.toDataURL('image/jpeg', 0.5)); // Reduced quality from 0.6
         setLoadingImage(false); // Stop loading UI
       };
     };
@@ -533,14 +534,22 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
         return;
     }
 
+    // TIMEOUT HANDLING: If upload takes longer than 15s, show error
+    const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Masa tamat. Sila cuba lagi atau guna mod offline.")), 15000)
+    );
+
     try {
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'rekod_buku_2026'), recordData);
+      await Promise.race([
+        addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'rekod_buku_2026'), recordData),
+        timeoutPromise
+      ]);
       setSuccess(true);
       setOfflineSaved(false);
       resetForm();
       window.scrollTo(0, 0);
     } catch (err) {
-      alert("Gagal menghantar. Sila periksa sambungan internet anda.");
+      alert("Gagal menghantar: " + err.message);
       console.error(err);
     } finally {
       setIsSubmitting(false);
@@ -689,7 +698,6 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
               <label style={{ cursor: 'pointer', width: '100%', height: '128px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
                 <Upload className="w-8 h-8 mb-2 text-slate-400" />
                 <span className="text-sm font-medium text-blue-600" style={{ fontSize: '14px', fontWeight: 500, color: '#2563eb' }}>Ambil Gambar</span>
-                {/* Changed: Removed capture="environment" to allow Gallery/Camera selection */}
                 <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'resit')} className="hidden" style={{ display: 'none' }} required />
               </label>
             )}
@@ -708,7 +716,6 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
               <label style={{ cursor: 'pointer', width: '100%', height: '128px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
                 <Upload className="w-8 h-8 mb-2 text-slate-400" />
                 <span className="text-sm font-medium text-blue-600" style={{ fontSize: '14px', fontWeight: 500, color: '#2563eb' }}>Ambil Gambar</span>
-                {/* Changed: Removed capture="environment" to allow Gallery/Camera selection */}
                 <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'senarai')} style={{ display: 'none' }} />
               </label>
             )}
@@ -902,22 +909,6 @@ function AdminDashboard({ data, isOnline, appId, isViewAll, setIsViewAll }) {
                 </button>
             )}
         </div>
-      </div>
-
-      {/* Load All Banner */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex justify-between items-center" style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', padding: '12px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <p className="text-sm text-blue-800" style={{ fontSize: '14px', color: '#1e40af', margin: 0 }}>
-             {isViewAll 
-                ? `Menunjukkan semua ${safeData.length} rekod.` 
-                : `Menunjukkan ${safeData.length} rekod terkini.`}
-          </p>
-          <button 
-             onClick={() => setIsViewAll(!isViewAll)}
-             className="text-xs font-bold text-blue-600 hover:text-blue-800 underline"
-             style={{ fontSize: '12px', fontWeight: 'bold', color: '#2563eb', textDecoration: 'underline', border: 'none', background: 'none', cursor: 'pointer' }}
-          >
-             {isViewAll ? "Lihat Terkini Sahaja" : "Lihat Semua Rekod"}
-          </button>
       </div>
 
       {/* Desktop Table */}
