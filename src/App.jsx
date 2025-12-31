@@ -98,7 +98,7 @@ export default function SistemRekodBuku() {
   const [pinError, setPinError] = useState(''); // Mesej ralat PIN
   const [isOnline, setIsOnline] = useState(true); // Status Online/Offline
   const [pendingCount, setPendingCount] = useState(0);
-  const [isViewAll, setIsViewAll] = useState(false); // Default: Hanya rekod terkini (Limit 50)
+  const [isViewAll, setIsViewAll] = useState(false); // Default: Hanya rekod terkini (Limit 20)
 
   // Semak status online/offline
   useEffect(() => {
@@ -225,11 +225,11 @@ export default function SistemRekodBuku() {
       const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'rekod_buku_2026');
       let q;
       
-      // LOGIK BARU: Jika isViewAll TRUE, query SEMUA. Jika FALSE, query 50 SAHAJA.
+      // LOGIK BARU: Jika isViewAll TRUE, query SEMUA. Jika FALSE, query 20 SAHAJA.
       if (isViewAll) {
          q = query(collectionRef, orderBy('tarikh', 'desc')); // Load everything
       } else {
-         q = query(collectionRef, orderBy('tarikh', 'desc'), limit(50)); // Load recent 50 by default
+         q = query(collectionRef, orderBy('tarikh', 'desc'), limit(20)); // Load recent 20 by default
       }
 
       const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -466,7 +466,7 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
       img.src = event.target.result;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 600; // Reduced from 800
+        const MAX_WIDTH = 500; // Further reduced for performance
         let width = img.width;
         let height = img.height;
         if (width > MAX_WIDTH) {
@@ -477,7 +477,7 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
-        callback(canvas.toDataURL('image/jpeg', 0.5)); // Reduced quality from 0.6
+        callback(canvas.toDataURL('image/jpeg', 0.4)); // Further reduced quality for performance
         setLoadingImage(false); // Stop loading UI
       };
     };
@@ -904,14 +904,14 @@ function AdminDashboard({ data, isOnline, appId, isViewAll, setIsViewAll }) {
             <p className="text-sm text-blue-800" style={{ fontSize: '14px', color: '#1e40af', margin: 0 }}>
                 {isViewAll 
                     ? `Paparan: Semua ${safeData.length} Rekod` 
-                    : `Paparan: 50 Terkini`}
+                    : `Paparan: 20 Terkini`}
             </p>
             <button 
                 onClick={() => setIsViewAll(!isViewAll)}
                 className="px-3 py-1.5 bg-white border border-blue-300 text-blue-700 text-xs font-bold rounded hover:bg-blue-50"
                 style={{ padding: '6px 12px', backgroundColor: 'white', border: '1px solid #93c5fd', color: '#1d4ed8', fontSize: '12px', fontWeight: 'bold', borderRadius: '4px', cursor: 'pointer' }}
             >
-                {isViewAll ? "Tunjuk 50 Terkini" : "Papar Semua Rekod"}
+                {isViewAll ? "Tunjuk 20 Terkini" : "Papar Semua Rekod"}
             </button>
           </div>
       </div>
