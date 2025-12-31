@@ -40,6 +40,7 @@ const RefreshCw = (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="2
 const Trash = (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
 const Download = (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>;
 const DollarSign = (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>;
+const CalendarIcon = (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>;
 
 // Icon Loading (Spinner Animasi)
 const LoadingSpinner = (p) => (
@@ -97,7 +98,7 @@ export default function SistemRekodBuku() {
   const [pinError, setPinError] = useState(''); // Mesej ralat PIN
   const [isOnline, setIsOnline] = useState(true); // Status Online/Offline
   const [pendingCount, setPendingCount] = useState(0);
-  const [isViewAll, setIsViewAll] = useState(false); // New state to control load all
+  const [isViewAll, setIsViewAll] = useState(false); // Default: Hanya rekod terkini (Limit 50)
 
   // Semak status online/offline
   useEffect(() => {
@@ -224,11 +225,11 @@ export default function SistemRekodBuku() {
       const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'rekod_buku_2026');
       let q;
       
+      // LOGIK BARU: Jika isViewAll TRUE, query SEMUA. Jika FALSE, query 50 SAHAJA.
       if (isViewAll) {
-         q = query(collectionRef); // Load everything if requested
+         q = query(collectionRef, orderBy('tarikh', 'desc')); // Load everything
       } else {
-         // Load recent 20 by default (Reduced from 50 to speed up initial load)
-         q = query(collectionRef, orderBy('tarikh', 'desc'), limit(20)); 
+         q = query(collectionRef, orderBy('tarikh', 'desc'), limit(50)); // Load recent 50 by default
       }
 
       const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -423,6 +424,7 @@ export default function SistemRekodBuku() {
                             <p className="text-sm font-medium">Memuatkan Rekod...</p>
                          </div>
                     ) : (
+                         // PASSED isViewAll and setIsViewAll props here
                          <AdminDashboard data={submissions} isOnline={isOnline} appId={appId} isViewAll={isViewAll} setIsViewAll={setIsViewAll} />
                     )}
                   </>
@@ -698,6 +700,7 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
               <label style={{ cursor: 'pointer', width: '100%', height: '128px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
                 <Upload className="w-8 h-8 mb-2 text-slate-400" />
                 <span className="text-sm font-medium text-blue-600" style={{ fontSize: '14px', fontWeight: 500, color: '#2563eb' }}>Ambil Gambar</span>
+                {/* Changed: Removed capture="environment" to allow Gallery/Camera selection */}
                 <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'resit')} className="hidden" style={{ display: 'none' }} required />
               </label>
             )}
@@ -716,6 +719,7 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
               <label style={{ cursor: 'pointer', width: '100%', height: '128px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
                 <Upload className="w-8 h-8 mb-2 text-slate-400" />
                 <span className="text-sm font-medium text-blue-600" style={{ fontSize: '14px', fontWeight: 500, color: '#2563eb' }}>Ambil Gambar</span>
+                {/* Changed: Removed capture="environment" to allow Gallery/Camera selection */}
                 <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'senarai')} style={{ display: 'none' }} />
               </label>
             )}
@@ -759,6 +763,7 @@ function AdminDashboard({ data, isOnline, appId, isViewAll, setIsViewAll }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(''); // New state for date filtering
 
   const allClasses = Object.values(SENARAI_KELAS).flat();
   const safeData = Array.isArray(data) ? data : [];
@@ -767,7 +772,15 @@ function AdminDashboard({ data, isOnline, appId, isViewAll, setIsViewAll }) {
     if (!record) return false;
     const matchClass = filterClass === 'Semua' || record.kelas === filterClass;
     const nameMatch = record.namaMurid ? record.namaMurid.toLowerCase().includes(searchTerm.toLowerCase()) : false;
-    return matchClass && nameMatch;
+    
+    // Date Filtering Logic
+    let dateMatch = true;
+    if (selectedDate && record.tarikh?.seconds) {
+        const recordDate = new Date(record.tarikh.seconds * 1000).toISOString().slice(0,10); // YYYY-MM-DD
+        dateMatch = recordDate === selectedDate;
+    }
+
+    return matchClass && nameMatch && dateMatch;
   });
 
   const toggleSelect = (id, e) => {
@@ -864,6 +877,44 @@ function AdminDashboard({ data, isOnline, appId, isViewAll, setIsViewAll }) {
              Data Offline (Cache). Data baharu mungkin tidak kelihatan.
         </div>
       )}
+
+      {/* Date Filter & Load All Controls */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex flex-col md:flex-row justify-between items-center gap-3" style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', padding: '12px', borderRadius: '8px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="flex items-center gap-3 w-full md:w-auto">
+             <div className="flex items-center gap-2 bg-white px-3 py-2 rounded border border-blue-200" style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'white', padding: '8px 12px', borderRadius: '4px', border: '1px solid #bfdbfe' }}>
+                <CalendarIcon className="w-4 h-4 text-blue-500" style={{ width: '16px', height: '16px', color: '#3b82f6' }} />
+                <input 
+                    type="date" 
+                    value={selectedDate}
+                    onChange={(e) => {
+                        setSelectedDate(e.target.value);
+                        // Auto switch to "Load All" if a date is picked, to ensure we have data to filter
+                        if(e.target.value && !isViewAll) setIsViewAll(true);
+                    }}
+                    className="text-sm text-slate-700 outline-none"
+                    style={{ fontSize: '14px', color: '#334155', border: 'none', outline: 'none' }}
+                />
+             </div>
+             {selectedDate && (
+                 <button onClick={() => setSelectedDate('')} className="text-xs text-red-500 underline" style={{ fontSize: '12px', color: '#ef4444', textDecoration: 'underline', border: 'none', background: 'none', cursor: 'pointer' }}>Reset Tarikh</button>
+             )}
+          </div>
+
+          <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+            <p className="text-sm text-blue-800" style={{ fontSize: '14px', color: '#1e40af', margin: 0 }}>
+                {isViewAll 
+                    ? `Paparan: Semua ${safeData.length} Rekod` 
+                    : `Paparan: 50 Terkini`}
+            </p>
+            <button 
+                onClick={() => setIsViewAll(!isViewAll)}
+                className="px-3 py-1.5 bg-white border border-blue-300 text-blue-700 text-xs font-bold rounded hover:bg-blue-50"
+                style={{ padding: '6px 12px', backgroundColor: 'white', border: '1px solid #93c5fd', color: '#1d4ed8', fontSize: '12px', fontWeight: 'bold', borderRadius: '4px', cursor: 'pointer' }}
+            >
+                {isViewAll ? "Tunjuk 50 Terkini" : "Papar Semua Rekod"}
+            </button>
+          </div>
+      </div>
 
       {/* Toolbar */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 justify-between items-center" style={{ backgroundColor: 'white', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
