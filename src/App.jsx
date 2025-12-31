@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
-import { getFirestore, collection, addDoc, query, onSnapshot, deleteDoc, doc, writeBatch, limit, orderBy } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, query, onSnapshot, deleteDoc, doc, writeBatch, limit, orderBy, getDocs } from 'firebase/firestore';
 
 // =================================================================================
 // KONFIGURASI SISTEM
@@ -466,7 +466,7 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
       img.src = event.target.result;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 500; // Further reduced for performance
+        const MAX_WIDTH = 600; // Reduced from 800
         let width = img.width;
         let height = img.height;
         if (width > MAX_WIDTH) {
@@ -477,7 +477,7 @@ function BorangSubmission({ user, appId, isOnline, setPendingCount }) {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
-        callback(canvas.toDataURL('image/jpeg', 0.4)); // Further reduced quality for performance
+        callback(canvas.toDataURL('image/jpeg', 0.5)); // Reduced quality from 0.6
         setLoadingImage(false); // Stop loading UI
       };
     };
@@ -837,11 +837,40 @@ function AdminDashboard({ data, isOnline, appId, isViewAll, setIsViewAll }) {
     }
   };
 
-  const handleExport = () => {
-    const dataToExport = selectedIds.length > 0
-      ? safeData.filter(d => selectedIds.includes(d.id))
-      : filteredData; // If nothing selected, export filtered list
+  const handleExport = async () => {
+    // Jika ada pilihan manual (checkbox), guna data yang dipilih sahaja
+    if (selectedIds.length > 0) {
+        const dataToExport = safeData.filter(d => selectedIds.includes(d.id));
+        generateCSV(dataToExport);
+        return;
+    }
 
+    // Jika tiada pilihan, download SEMUA data dari database (bypass limit 20/50)
+    try {
+        const confirmExport = window.confirm("Adakah anda mahu memuat turun SEMUA data rekod dari pangkalan data?");
+        if (!confirmExport) return;
+
+        // Tunjuk feedback ringkas
+        alert("Sedang menyediakan data... Sila tunggu sebentar.");
+
+        const db = getFirestore();
+        const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'rekod_buku_2026'), orderBy('tarikh', 'desc'));
+        const querySnapshot = await getDocs(q);
+        
+        const allData = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+
+        generateCSV(allData);
+
+    } catch (error) {
+        console.error("Export Error:", error);
+        alert("Gagal mengeksport data. Sila cuba lagi.");
+    }
+  };
+
+  const generateCSV = (dataToExport) => {
     if (dataToExport.length === 0) return alert("Tiada data untuk dieksport.");
 
     // CSV Header
@@ -861,7 +890,7 @@ function AdminDashboard({ data, isOnline, appId, isViewAll, setIsViewAll }) {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `rekod_buku_2026_${new Date().toISOString().slice(0,10)}.csv`);
+    link.setAttribute("download", `rekod_buku_2026_FULL_${new Date().toISOString().slice(0,10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
